@@ -1,0 +1,54 @@
+messages:
+  tag-set: "&#55FF55Tag set to: %tag%"
+  tag-removed: "&#FF5555Tag Removed!"
+  favorite-add: "&#55FF55Added to favorites: %tag%"
+  favorite-remove: "&#FF5555Removed from favorites: %tag%"
+
+gui-text:
+  back-button: "&#FFBB00&lBack"
+  next-page: "&#FFBB00Next Page"
+  prev-page: "&#FFBB00Prev Page"
+  active-prefix: "&#55FF55● "
+  favorite-prefix: "&#FFD700⭐ "
+  lore-equipped: "&#55FF55Equipped"
+  lore-click-to-equip: "&#BBBBBBClick to Equip"
+  lore-shift-click-favorite: "&#FFBB00Shift-Click to Favorite"
+
+items:
+  back-button: "ARROW"
+  next-page-item: "LIME_STAINED_GLASS_PANE"
+  prev-page-item: "RED_STAINED_GLASS_PANE"
+
+sounds:
+  click: { sound: "UI_BUTTON_CLICK", volume: 1.0, pitch: 1.0 }
+  equip: { sound: "ENTITY_PLAYER_LEVELUP", volume: 1.0, pitch: 1.2 }
+  remove: { sound: "BLOCK_ANVIL_BREAK", volume: 0.8, pitch: 1.0 }
+
+main-menu:
+  title: "&#FFBB00PerchTags Categories"
+  size: 27
+  decorations:
+    yellow_stained_glass_pane:
+      slots: [0, 1, 2, 3, 5, 6, 7, 8, 18, 19, 20, 21, 22, 23, 24, 25, 26]
+      name: " "
+    orange_stained_glass_pane:
+      slots: [9, 17]
+      name: " "
+
+clear-tag-button:
+  slot: 4
+  material: BARRIER
+  display-name: "&#FF5555&lClear Active Tag"
+  lore:
+    - "&#777777Click to remove your"
+    - "&#777777currently equipped tag."
+
+sort-button:
+  slot: 4 # Global fallback slot (if not set in category file)
+  material: COMPARATOR # The item used for the button
+  display-name-default: "&eSorting: &fDefault"
+  display-name-alphabetical: "&eSorting: &fAlphabetical"
+  lore:
+    - " "
+    - "&7Click to toggle between"
+    - "&7default and A-Z sorting."

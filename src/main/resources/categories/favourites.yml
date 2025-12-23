@@ -1,0 +1,26 @@
+type: FAVORITES
+category-display: "&eMy Favorites"
+icon: "NETHER_STAR"
+main-gui-slot: 10
+size: 54
+
+# Navigation (overrides decorations)
+back-button-slot: 0
+prev-page-slot: 1
+next-page-slot: 8
+
+# Area for the tags to be populated in (start to end)
+start-page-slot: 10
+end-page-slot: 43
+
+decorations:
+  yellow_stained_glass_pane:
+    # won't overwrite your navigation buttons
+    slots: [3, 5, 8, 9, 13, 17, 45, 48, 50, 53, 36, 40, 44, 49]
+    name: " "
+  orange_stained_glass_pane:
+    slots: [1, 7, 46, 52, 2, 6, 47, 51]
+    name: " "
+
+# Leave this empty; it is populated dynamically by the plugin based on the players favourites
+tags: {}
