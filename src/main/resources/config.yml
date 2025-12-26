@@ -4,6 +4,11 @@ messages:
   favorite-add: "&#55FF55Added to favorites: %tag%"
   favorite-remove: "&#FF5555Removed from favorites: %tag%"
 
+gui-tag-status:
+  spacer: ""
+  favourited: "&f⭐ &eFavourited"
+  equipped: "&f» &eEquipped"
+
 gui-text:
   back-button: "&#FFBB00&lBack"
   next-page: "&#FFBB00Next Page"

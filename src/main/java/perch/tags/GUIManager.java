@@ -1,5 +1,6 @@
 package perch.tags;
 
+import me.clip.placeholderapi.PlaceholderAPI;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -20,7 +21,11 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 
 public class GUIManager implements Listener {
     private final Main plugin;
@@ -40,39 +45,84 @@ public class GUIManager implements Listener {
         @Override public @NotNull Inventory getInventory() { return null; }
     }
 
+    public void closeAllMenus() {
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            Inventory top = p.getOpenInventory().getTopInventory();
+            if (top != null && top.getHolder() instanceof PerchMenuHolder) p.closeInventory();
+        }
+    }
+
+    private boolean hasPapi() {
+        return Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI");
+    }
+
+    private String format(Player player, String raw) {
+        if (raw == null) return null;
+        String s = raw;
+        if (hasPapi()) s = PlaceholderAPI.setPlaceholders(player, s);
+        return ColorUtils.translate(s);
+    }
+
+    private List<String> format(Player player, List<String> raw) {
+        List<String> out = new ArrayList<>();
+        for (String line : raw) {
+            String f = format(player, line);
+            if (f != null) out.add(f);
+        }
+        return out;
+    }
+
+    private String stripNoSpacePrefix(String raw) {
+        if (raw == null) return null;
+        return raw.startsWith("-") ? raw.substring(1) : raw;
+    }
+
+    private String cfgString(String path, String fallback) {
+        String v = plugin.getConfig().getString(path);
+        return v == null ? fallback : v;
+    }
+
     public void openMainMenu(Player player) {
         int size = plugin.getConfig().getInt("main-menu.size", 27);
-        Inventory gui = Bukkit.createInventory(new PerchMenuHolder(), size, ColorUtils.translate(plugin.getConfig().getString("main-menu.title")));
+        Inventory gui = Bukkit.createInventory(new PerchMenuHolder(), size, format(player, plugin.getConfig().getString("main-menu.title")));
 
-        applyDecorations(gui, plugin.getConfig().getConfigurationSection("main-menu.decorations"), size);
-        renderClearButton(gui, size);
+        applyDecorations(player, gui, plugin.getConfig().getConfigurationSection("main-menu.decorations"), size);
+        renderClearButton(player, gui, size);
 
         plugin.getTagManager().getCategories().forEach((name, tags) -> {
             ItemStack item = new ItemStack(plugin.getTagManager().getIcon(name));
             ItemMeta meta = item.getItemMeta();
             if (meta != null) {
-                meta.setDisplayName(ColorUtils.translate(name));
+                meta.setDisplayName(format(player, name));
+
                 List<String> catDesc = plugin.getTagManager().getCategoryDescription(name);
                 if (!catDesc.isEmpty()) {
-                    List<String> lore = new ArrayList<>();
-                    for (String line : catDesc) lore.add(ColorUtils.translate(line));
-                    meta.setLore(lore);
+                    int unlocked = plugin.getTagManager().countUnlockedTags(player, name);
+                    int total = plugin.getTagManager().countTotalTags(name);
+
+                    List<String> loreRaw = new ArrayList<>();
+                    for (String line : catDesc) loreRaw.add(line.replace("{unlocked}", String.valueOf(unlocked)).replace("{total}", String.valueOf(total)));
+
+                    meta.setLore(format(player, loreRaw));
                 }
+
                 meta.getPersistentDataContainer().set(categoryKey, PersistentDataType.STRING, name);
                 item.setItemMeta(meta);
                 int slot = plugin.getTagManager().getSlot(name);
                 if (slot >= 0 && slot < size) gui.setItem(slot, item);
             }
         });
+
         player.openInventory(gui);
     }
 
     public void openTagMenu(Player player, String categoryName, int page) {
         int size = plugin.getTagManager().getMenuSize(categoryName);
-        Inventory gui = Bukkit.createInventory(new PerchMenuHolder(), size, ColorUtils.translate(categoryName));
+        String title = plugin.getTagManager().getMenuTitle(categoryName);
+        Inventory gui = Bukkit.createInventory(new PerchMenuHolder(), size, format(player, title));
 
-        applyDecorations(gui, plugin.getTagManager().getDecos(categoryName), size);
-        renderClearButton(gui, size);
+        applyDecorations(player, gui, plugin.getTagManager().getDecos(categoryName), size);
+        renderClearButton(player, gui, size);
 
         player.getPersistentDataContainer().set(pageKey, PersistentDataType.INTEGER, page);
         player.getPersistentDataContainer().set(categoryKey, PersistentDataType.STRING, categoryName);
@@ -82,14 +132,10 @@ public class GUIManager implements Listener {
 
         if (plugin.getTagManager().getCategoryType(categoryName).equals("FAVORITES")) {
             for (String id : playerFavorites) {
-                for (List<Tag> list : plugin.getTagManager().getCategories().values()) {
-                    for (Tag t : list) {
-                        if (t.getPermission().equals(id)) { tagsToDisplay.add(t); break; }
-                    }
-                }
+                Tag t = plugin.getTagManager().getTagById(id);
+                if (t != null) tagsToDisplay.add(t);
             }
         } else {
-            // FIXED: Removed the 'false' boolean to match updated TagManager
             List<Tag> tags = plugin.getTagManager().getTags(categoryName);
             if (tags != null) {
                 for (Tag t : tags) {
@@ -98,6 +144,12 @@ public class GUIManager implements Listener {
                 }
             }
         }
+
+        String activeId = getActiveTagId(player);
+
+        String spacerLine = cfgString("gui-tag-status.spacer", "");
+        String favLine = cfgString("gui-tag-status.favourited", "&8⭐ &fFavourited");
+        String eqLine = cfgString("gui-tag-status.equipped", "&8» &fEquipped");
 
         int start = plugin.getTagManager().getStartSlot(categoryName);
         int end = plugin.getTagManager().getEndSlot(categoryName);
@@ -108,62 +160,68 @@ public class GUIManager implements Listener {
 
         for (int i = startIdx; i < endIdx; i++) {
             Tag tag = tagsToDisplay.get(i);
-            boolean isActive = tag.getDisplay().equals(getActiveTag(player));
+            boolean isEquipped = tag.getPermission().equals(activeId);
             boolean isFav = playerFavorites.contains(tag.getPermission());
 
-            ItemStack item = new ItemStack(isActive ? Material.NETHER_STAR : tag.getIcon());
+            ItemStack item = new ItemStack(isEquipped ? Material.NETHER_STAR : tag.getIcon());
             ItemMeta meta = item.getItemMeta();
             if (meta != null) {
-                meta.setDisplayName(ColorUtils.translate(tag.getDisplay()));
+                meta.setDisplayName(format(player, stripNoSpacePrefix(tag.getDisplay())));
                 if (isFav) {
                     meta.addEnchant(Enchantment.UNBREAKING, 1, true);
                     meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
                 }
-                List<String> lore = new ArrayList<>();
-                for (String line : tag.getDescription().split("\n")) {
-                    lore.add(ColorUtils.translate("&#AAAAAA" + line));
+
+                List<String> loreRaw = new ArrayList<>();
+                for (String line : tag.getDescription().split("\n")) loreRaw.add("&#AAAAAA" + line);
+
+                if (isFav || isEquipped) {
+                    loreRaw.add(spacerLine);
+                    if (isFav) loreRaw.add(favLine);
+                    if (isEquipped) loreRaw.add(eqLine);
                 }
-                meta.setLore(lore);
+
+                meta.setLore(format(player, loreRaw));
                 meta.getPersistentDataContainer().set(tagIdKey, PersistentDataType.STRING, tag.getPermission());
                 item.setItemMeta(meta);
                 if (slot <= end) gui.setItem(slot++, item);
             }
         }
 
-        handleNavigation(gui, categoryName, page, endIdx, tagsToDisplay.size());
+        handleNavigation(player, gui, categoryName, page, endIdx, tagsToDisplay.size());
         player.openInventory(gui);
     }
 
-    private void handleNavigation(Inventory gui, String cat, int page, int endIdx, int total) {
+    private void handleNavigation(Player player, Inventory gui, String cat, int page, int endIdx, int total) {
         Material backMat = getSafeMaterial(plugin.getConfig().getString("items.back-button"), Material.ARROW);
         gui.setItem(plugin.getTagManager().getBackSlot(cat),
-                createNavItem(backMat, plugin.getConfig().getString("gui-text.back-button", "&#FFBB00&lBack"), "back"));
+                createNavItem(player, backMat, plugin.getConfig().getString("gui-text.back-button", "&#FFBB00&lBack"), "back"));
 
         Material prevMat = getSafeMaterial(plugin.getConfig().getString("items.prev-page-item"), Material.PAPER);
         Material nextMat = getSafeMaterial(plugin.getConfig().getString("items.next-page-item"), Material.PAPER);
 
         if (page > 0) {
             gui.setItem(plugin.getTagManager().getPrevSlot(cat),
-                    createNavItem(prevMat, plugin.getConfig().getString("gui-text.prev-page", "&#FFBB00Prev Page"), "prev"));
+                    createNavItem(player, prevMat, plugin.getConfig().getString("gui-text.prev-page", "&#FFBB00Previous Page"), "prev"));
         }
         if (endIdx < total) {
             gui.setItem(plugin.getTagManager().getNextSlot(cat),
-                    createNavItem(nextMat, plugin.getConfig().getString("gui-text.next-page", "&#FFBB00Next Page"), "next"));
+                    createNavItem(player, nextMat, plugin.getConfig().getString("gui-text.next-page", "&#FFBB00Next Page"), "next"));
         }
     }
 
-    private ItemStack createNavItem(Material m, String n, String action) {
+    private ItemStack createNavItem(Player player, Material m, String n, String action) {
         ItemStack i = new ItemStack(m);
         ItemMeta mt = i.getItemMeta();
         if (mt != null) {
-            mt.setDisplayName(ColorUtils.translate(n));
+            mt.setDisplayName(format(player, n));
             mt.getPersistentDataContainer().set(navActionKey, PersistentDataType.STRING, action);
             i.setItemMeta(mt);
         }
         return i;
     }
 
-    private void renderClearButton(Inventory gui, int size) {
+    private void renderClearButton(Player player, Inventory gui, int size) {
         ConfigurationSection clearBtn = plugin.getConfig().getConfigurationSection("clear-tag-button");
         if (clearBtn == null) return;
 
@@ -173,10 +231,8 @@ public class GUIManager implements Listener {
             ItemStack item = new ItemStack(mat);
             ItemMeta meta = item.getItemMeta();
             if (meta != null) {
-                meta.setDisplayName(ColorUtils.translate(clearBtn.getString("display-name", "&#FF5555&lClear Tag")));
-                List<String> lore = new ArrayList<>();
-                for (String l : clearBtn.getStringList("lore")) lore.add(ColorUtils.translate(l));
-                meta.setLore(lore);
+                meta.setDisplayName(format(player, clearBtn.getString("display-name", "&#FF5555&lClear Tag")));
+                meta.setLore(format(player, clearBtn.getStringList("lore")));
                 meta.getPersistentDataContainer().set(navActionKey, PersistentDataType.STRING, "clear");
                 item.setItemMeta(meta);
             }
@@ -211,12 +267,16 @@ public class GUIManager implements Listener {
 
         if (meta.getPersistentDataContainer().has(tagIdKey, PersistentDataType.STRING)) {
             String uniqueId = meta.getPersistentDataContainer().get(tagIdKey, PersistentDataType.STRING);
+            if (uniqueId == null) return;
+
             if (event.isShiftClick()) {
                 toggleFavorite(player, uniqueId);
                 openTagMenu(player, category, currentPage);
             } else {
-                setActiveTag(player, meta.getDisplayName());
-                player.closeInventory();
+                String activeId = getActiveTagId(player);
+                if (uniqueId.equals(activeId)) return;
+                setActiveTagId(player, uniqueId);
+                openTagMenu(player, category, currentPage);
             }
             return;
         }
@@ -235,7 +295,6 @@ public class GUIManager implements Listener {
         playSound(player, favs.contains(id) ? "click" : "remove");
     }
 
-    // FIXED: Added back for TagsCommand
     public void clearFavorites(Player player) {
         player.getPersistentDataContainer().remove(favoriteKey);
         playSound(player, "remove");
@@ -252,14 +311,14 @@ public class GUIManager implements Listener {
         if (s != null) p.playSound(p.getLocation(), Sound.valueOf(s.getString("sound")), (float)s.getDouble("volume"), (float)s.getDouble("pitch"));
     }
 
-    private void applyDecorations(Inventory gui, ConfigurationSection s, int size) {
+    private void applyDecorations(Player player, Inventory gui, ConfigurationSection s, int size) {
         if (s == null) return;
         for (String k : s.getKeys(false)) {
             Material m = getSafeMaterial(k, Material.GRAY_STAINED_GLASS_PANE);
             ItemStack i = new ItemStack(m);
             ItemMeta meta = i.getItemMeta();
             if (meta != null) {
-                meta.setDisplayName(ColorUtils.translate(s.getString(k + ".name", " ")));
+                meta.setDisplayName(format(player, s.getString(k + ".name", " ")));
                 i.setItemMeta(meta);
             }
             for (int slot : s.getIntegerList(k + ".slots")) if (slot >= 0 && slot < size) gui.setItem(slot, i);
@@ -277,13 +336,18 @@ public class GUIManager implements Listener {
         if (e.getInventory().getHolder() instanceof PerchMenuHolder) e.setCancelled(true);
     }
 
-    public void setActiveTag(Player p, String t) {
-        p.getPersistentDataContainer().set(activeTagKey, PersistentDataType.STRING, t);
+    public void setActiveTagId(Player p, String uniqueId) {
+        p.getPersistentDataContainer().set(activeTagKey, PersistentDataType.STRING, uniqueId);
         playSound(p, "equip");
-        p.sendMessage(ColorUtils.translate(plugin.getConfig().getString("messages.tag-set").replace("%tag%", t)));
+
+        Tag tag = plugin.getTagManager().getTagById(uniqueId);
+        String shown = tag != null ? tag.getDisplay() : uniqueId;
+        shown = stripNoSpacePrefix(shown);
+
+        p.sendMessage(ColorUtils.translate(plugin.getConfig().getString("messages.tag-set").replace("%tag%", ColorUtils.translate(shown))));
     }
 
-    public String getActiveTag(Player p) {
+    public String getActiveTagId(Player p) {
         return p.getPersistentDataContainer().getOrDefault(activeTagKey, PersistentDataType.STRING, "");
     }
 

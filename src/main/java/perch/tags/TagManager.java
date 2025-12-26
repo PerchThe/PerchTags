@@ -1,20 +1,29 @@
 package perch.tags;
 
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Player;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 public class TagManager {
     private final Main plugin;
     private final Map<String, List<Tag>> categories = new LinkedHashMap<>();
+    private final Map<String, Tag> tagsById = new HashMap<>();
     private final Map<String, Material> categoryIcons = new HashMap<>();
     private final Map<String, Integer> categorySlots = new HashMap<>();
     private final Map<String, Integer> categoryMenuSizes = new HashMap<>();
@@ -22,6 +31,7 @@ public class TagManager {
     private final Map<String, List<String>> categoryDescriptions = new HashMap<>();
     private final Map<String, ConfigurationSection> categoryDecos = new HashMap<>();
     private final Map<String, String> categoryTypes = new HashMap<>();
+    private final Map<String, String> categoryMenuTitles = new HashMap<>();
     private final Map<String, Integer> startSlots = new HashMap<>(), endSlots = new HashMap<>(), nextSlots = new HashMap<>(), prevSlots = new HashMap<>();
 
     public TagManager(Main plugin) {
@@ -29,8 +39,8 @@ public class TagManager {
     }
 
     public void load() {
-        // Clear all maps to prevent data carry-over on reload
         categories.clear();
+        tagsById.clear();
         categoryIcons.clear();
         categorySlots.clear();
         categoryDescriptions.clear();
@@ -38,6 +48,7 @@ public class TagManager {
         categoryBackSlots.clear();
         categoryDecos.clear();
         categoryTypes.clear();
+        categoryMenuTitles.clear();
         startSlots.clear();
         endSlots.clear();
         nextSlots.clear();
@@ -52,7 +63,6 @@ public class TagManager {
         File[] files = dir.listFiles((d, name) -> name.toLowerCase().endsWith(".yml"));
         if (files == null) return;
 
-        // Sort files by name so categories appear in a predictable order
         Arrays.sort(files, Comparator.comparing(File::getName, String.CASE_INSENSITIVE_ORDER));
 
         int totalTags = 0;
@@ -70,8 +80,11 @@ public class TagManager {
             }
 
             String display = config.getString("category-display", categoryId);
+
             categoryTypes.put(display, config.getString("type", "DEFAULT").toUpperCase());
             categoryDescriptions.put(display, config.getStringList("description"));
+            categoryMenuTitles.put(display, config.getString("menu-title", display));
+
             List<String> defaultDesc = config.getStringList("default-description");
 
             categoryIcons.put(display, getSafeMaterial(config.getString("icon"), Material.BOOK));
@@ -82,8 +95,6 @@ public class TagManager {
             nextSlots.put(display, config.getInt("next-page-slot", 8));
             categoryDecos.put(display, config.getConfigurationSection("decorations"));
             startSlots.put(display, config.getInt("start-page-slot", 10));
-            endSlots.getOrDefault(display, config.getInt("end-page-slot", 43));
-            // Fixed a small bug where endSlots wasn't being put
             endSlots.put(display, config.getInt("end-page-slot", 43));
 
             List<Tag> tagsList = new ArrayList<>();
@@ -107,14 +118,18 @@ public class TagManager {
                             List<String> finalDesc = (tagDesc == null || tagDesc.isEmpty()) ? defaultDesc : tagDesc;
                             Material item = getSafeMaterial(permSection.getString("item"), Material.NAME_TAG);
 
-                            tagsList.add(new Tag(tagDisplay, uniqueId, String.join("\n", finalDesc), display, item));
+                            Tag tag = new Tag(tagDisplay, uniqueId, String.join("\n", finalDesc), display, item);
+                            tagsList.add(tag);
+                            tagsById.put(uniqueId, tag);
                             totalTags++;
                         }
                     }
                 }
             }
+
             categories.put(display, tagsList);
         }
+
         plugin.getLogger().info("PerchTags loaded " + totalTags + " tags across " + categories.size() + " categories");
     }
 
@@ -131,9 +146,46 @@ public class TagManager {
         return (m == null) ? fallback : m;
     }
 
-    // UPDATED: Removed the 'boolean sorted' parameter as it is no longer used
     public List<Tag> getTags(String category) {
         return categories.getOrDefault(category, new ArrayList<>());
+    }
+
+    public Tag getTagById(String uniqueId) {
+        if (uniqueId == null) return null;
+        return tagsById.get(uniqueId);
+    }
+
+    public int countTotalTags(String categoryDisplay) {
+        return getTags(categoryDisplay).size();
+    }
+
+    public int countUnlockedTags(Player player, String categoryDisplay) {
+        List<Tag> tags = getTags(categoryDisplay);
+        int count = 0;
+        for (Tag t : tags) {
+            String basePerm = t.getPermission().split(":")[0];
+            if (player.isOp() || player.hasPermission(basePerm)) count++;
+        }
+        return count;
+    }
+
+    public String findCategoryDisplay(String input) {
+        if (input == null) return null;
+
+        String norm = input.replace('_', ' ').trim();
+        if (categories.containsKey(norm)) return norm;
+
+        for (String key : categories.keySet()) {
+            if (key.equalsIgnoreCase(norm)) return key;
+            String plain = ChatColor.stripColor(ColorUtils.translate(key));
+            if (plain != null && plain.equalsIgnoreCase(norm)) return key;
+        }
+
+        return null;
+    }
+
+    public String getMenuTitle(String categoryDisplay) {
+        return categoryMenuTitles.getOrDefault(categoryDisplay, categoryDisplay);
     }
 
     public List<String> getCategoryDescription(String display) { return categoryDescriptions.getOrDefault(display, new ArrayList<>()); }

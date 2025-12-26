@@ -29,6 +29,11 @@ public class Main extends JavaPlugin {
         getCommand("tags").setTabCompleter(tagsCommand);
     }
 
+    @Override
+    public void onDisable() {
+        if (this.guiManager != null) this.guiManager.closeAllMenus();
+    }
+
     public void reloadPlugin() {
         reloadConfig();
         this.tagManager.load();
@@ -40,7 +45,7 @@ public class Main extends JavaPlugin {
         if (!dir.exists()) dir.mkdirs();
 
         if (!(new File(dir, "custom.yml")).exists()) saveResource("categories/custom.yml", false);
-        if (!(new File(dir, "favourites.yml")).exists()) saveResource("categories/favourites.yml", false); // Restored
+        if (!(new File(dir, "favourites.yml")).exists()) saveResource("categories/favourites.yml", false);
     }
 
     public static Main getInstance() { return instance; }

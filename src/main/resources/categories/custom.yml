@@ -1,7 +1,9 @@
 category-display: "&6Custom Tags"
+menu-title: "&6Custom Tags"
+
 description:
-  - "description to put for this category"
-  - "in the main gui"
+  - "&7Unlocked: &e{unlocked}&7/&e{total}"
+  - "&8Pick a tag from this category"
 
 icon: "NAME_TAG"
 main-gui-slot: 13
@@ -23,17 +25,13 @@ decorations:
     slots: [3, 5, 8, 9, 13, 17, 45, 48, 50, 53, 36, 40, 44, 49]
     name: " "
   orange_stained_glass_pane:
-    slots: [1, 7, 46, 52, 2, 6, 47, 51]
+    slots: [1, 2, 6, 7, 46, 47, 51, 52]
     name: " "
 
 tags:
-  #both the file entry and the tag! handy!
-  "&d[UwU]":
-    # this permission is added after the category filename, in this ''custom'' file it will be perchtags.custom.<whateveruputaspermission>
-    permission: "uwu"
-    # if not specified, it will default to name_tag
+  uwu:
+    display: "&d[UwU]"
     item: "PINK_DYE"
-    # This description overrides the default, if not specified, it will not add it.
     description:
       - "this is the first line"
       - "this is the second line"

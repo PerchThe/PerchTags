@@ -19,10 +19,32 @@ public class TagExpansion extends PlaceholderExpansion {
         if (player == null) return "";
 
         if (params.equalsIgnoreCase("tag")) {
-            String active = plugin.getGUIManager().getActiveTag(player);
-            if (active == null || active.isEmpty()) return "";
-            return " " + ColorUtils.translate(active);
+            String stored = plugin.getGUIManager().getActiveTagId(player);
+            if (stored == null || stored.isEmpty()) return "";
+
+            Tag tag = plugin.getTagManager().getTagById(stored);
+            String raw = tag != null ? tag.getDisplay() : stored;
+
+            boolean noSpace = raw.startsWith("-");
+            String cleaned = noSpace ? raw.substring(1) : raw;
+
+            return (noSpace ? "" : " ") + ColorUtils.translate(cleaned);
         }
+
+        if (params.startsWith("category_unlocked:")) {
+            String arg = params.substring("category_unlocked:".length()).trim();
+            String display = plugin.getTagManager().findCategoryDisplay(arg);
+            if (display == null) return "0";
+            return String.valueOf(plugin.getTagManager().countUnlockedTags(player, display));
+        }
+
+        if (params.startsWith("category_total:")) {
+            String arg = params.substring("category_total:".length()).trim();
+            String display = plugin.getTagManager().findCategoryDisplay(arg);
+            if (display == null) return "0";
+            return String.valueOf(plugin.getTagManager().countTotalTags(display));
+        }
+
         return null;
     }
 }
