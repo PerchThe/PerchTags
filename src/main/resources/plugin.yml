@@ -3,23 +3,33 @@ version: 1.0
 main: perch.tags.Main
 api-version: '1.21'
 depend: [PlaceholderAPI]
+
 commands:
   tags:
     description: Main command for PerchTags.
-    usage: /tags [reload|clearfavorites]
+    usage: /tags [add|reload|clearfavorites]
+
 permissions:
   perchtags.use:
     description: Allows a player to open the tags menu.
     default: true
+
   perchtags.admin:
-    description: Admin access for reloading and debug commands.
+    description: Admin access for PerchTags.
     default: op
     children:
       perchtags.reload: true
       perchtags.clearfavorites: true
+      perchtags.add: true
+
+  perchtags.add:
+    description: Allows adding tags via the virtual book editor.
+    default: op
+
   perchtags.reload:
     description: Allows an admin to reload the plugin configuration.
     default: op
+
   perchtags.clearfavorites:
     description: Allows an admin to clear a player's favorite list.
     default: op

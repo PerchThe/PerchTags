@@ -7,15 +7,19 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 public class TagsCommand implements CommandExecutor, TabCompleter {
     private final Main plugin;
+    private final AddTagCommand addTagCommand;
 
-    public TagsCommand(Main plugin) {
+    public TagsCommand(Main plugin, AddTagCommand addTagCommand) {
         this.plugin = plugin;
+        this.addTagCommand = addTagCommand;
     }
 
     @Override
@@ -25,13 +29,15 @@ public class TagsCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        // Open menu if no args are provided
         if (args.length == 0) {
             plugin.getGUIManager().openMainMenu(player);
             return true;
         }
 
-        // Admin Reload Logic
+        if (args[0].equalsIgnoreCase("add")) {
+            return addTagCommand.handle(player, args);
+        }
+
         if (args[0].equalsIgnoreCase("reload")) {
             if (!player.hasPermission("perchtags.reload")) {
                 player.sendMessage(ColorUtils.translate("&cNo permission."));
@@ -42,14 +48,13 @@ public class TagsCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        // Debug Clear Favorites Logic
         if (args[0].equalsIgnoreCase("clearfavorites")) {
             if (!player.hasPermission("perchtags.clearfavorites")) {
                 player.sendMessage(ColorUtils.translate("&cNo permission."));
                 return true;
             }
             if (args.length < 2) {
-                player.sendMessage(ColorUtils.translate("&cUsage: /tags clearfavorites <player>"));
+                player.sendMessage(ColorUtils.translate("&cUsage: /perchtags clearfavorites <player>"));
                 return true;
             }
             Player target = Bukkit.getPlayer(args[1]);
@@ -62,7 +67,6 @@ public class TagsCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        // Fallback: If they typed something else, just open the menu
         plugin.getGUIManager().openMainMenu(player);
         return true;
     }
@@ -70,10 +74,23 @@ public class TagsCommand implements CommandExecutor, TabCompleter {
     @Override
     public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, String[] args) {
         List<String> completions = new ArrayList<>();
+
         if (args.length == 1) {
+            if (sender.hasPermission("perchtags.add") || sender.hasPermission("perchtags.admin")) completions.add("add");
             if (sender.hasPermission("perchtags.reload")) completions.add("reload");
             if (sender.hasPermission("perchtags.clearfavorites")) completions.add("clearfavorites");
+            return filterPrefix(completions, args[0]);
         }
-        return completions.stream().filter(s -> s.toLowerCase().startsWith(args[0].toLowerCase())).collect(Collectors.toList());
+
+        if (args.length == 2 && args[0].equalsIgnoreCase("add")) {
+            return addTagCommand.tabCompleteCategories(args[1]);
+        }
+
+        return completions;
+    }
+
+    private List<String> filterPrefix(List<String> list, String prefix) {
+        String p = prefix == null ? "" : prefix.toLowerCase(Locale.ROOT);
+        return list.stream().filter(s -> s.toLowerCase(Locale.ROOT).startsWith(p)).collect(Collectors.toList());
     }
 }

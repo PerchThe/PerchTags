@@ -3,6 +3,23 @@ messages:
   tag-removed: "&#FF5555Tag Removed!"
   favorite-add: "&#55FF55Added to favorites: %tag%"
   favorite-remove: "&#FF5555Removed from favorites: %tag%"
+  no-permission: "&cNo permission."
+  usage-add: "&cUsage: /tags add <category> <yamlkey>"
+  invalid-category: "&cInvalid category. Must match an existing categories/<name>.yml file."
+  invalid-yamlkey: "&cInvalid yamlkey. Use only letters, numbers, _ and -."
+  already-active: "&cYou already have an active add session. Type &eDONE&c or &eCANCEL&c in chat."
+  read-failed: "&cFailed to read category file."
+  yamlkey-exists: "&cThat yamlkey already exists in &e{category}&c."
+  capture-start-1: "&aNow paste/type the tag display string in chat."
+  capture-start-2: "&7Send multiple messages if needed. Type &eDONE&7 to save, &eCANCEL&7 to abort."
+  chunk-received: "&7Chunk received. Total: &e{total}&7. Type &eDONE&7 to save."
+  cancelled: "&cCancelled. Nothing was saved."
+  no-content: "&cNo content provided. Nothing was saved."
+  category-missing: "&cCategory file no longer exists. Nothing was saved."
+  yamlkey-exists-generic: "&cThat yamlkey already exists. Nothing was saved."
+  write-failed: "&cFailed to write category file."
+  saved-1: "&aAdded tag &e{yamlkey}&a to &e{category}&a."
+  saved-2: "&7Permission: &f{perm}"
 
 gui-tag-status:
   spacer: ""
@@ -18,6 +35,7 @@ gui-text:
   lore-equipped: "&#55FF55Equipped"
   lore-click-to-equip: "&#BBBBBBClick to Equip"
   lore-shift-click-favorite: "&#FFBB00Shift-Click to Favorite"
+
 
 items:
   back-button: "ARROW"
